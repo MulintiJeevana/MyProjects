@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Community Event Portal</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 1rem; background: #f9f9f9; }
+  nav a { margin-right: 1rem; color: #333; text-decoration: none; }
+  nav a:hover { text-decoration: underline; }
+  section { background: #fff; padding: 1rem 1.5rem 1.5rem; border-radius: 6px; margin-bottom: 2rem; max-width: 800px; }
+  h2 { margin-top: 0; }
+  img.event-img { max-width: 100%; height: auto; border-radius: 8px; margin-top: 0.5rem; }
+  form { margin-top: 1rem; }
+  input, select, textarea { width: 100%; padding: 0.5rem; margin-bottom: 1rem; border: 1px solid #ccc; border-radius: 4px; }
+  input:focus, select:focus, textarea:focus { border-color: #4caf50; outline: none; }
+  #eventFee { font-weight: bold; margin-bottom: 1rem; }
+  #charCounter { font-size: 0.9rem; color: #666; text-align: right; margin-top: -1rem; margin-bottom: 1rem; }
+  #output { background: #e0ffe0; border: 2px solid #4caf50; padding: 1rem; margin-top: 1rem; display: none; }
+  button { background: #4caf50; color: #fff; border: none; padding: 0.7rem 1.2rem; border-radius: 4px; cursor: pointer; margin-right: 0.5rem; }
+  button:hover { background: #45a045; }
+  #locationResult { margin-top: 1rem; }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="#registration">Register</a>
+  <a href="#events">Events</a>
+  <a href="#location">Nearby Events</a>
+</nav>
+
+<section id="registration">
+  <h2>Event Registration</h2>
+  <form id="registrationForm">
+    <label for="name">Full Name:</label>
+    <input type="text" id="name" name="name" required />
+
+    <label for="phone">Phone Number:</label>
+    <input type="text" id="phone" name="phone" placeholder="(555) 123-4567" required />
+
+    <label for="eventType">Select Event:</label>
+    <select id="eventType" name="eventType" onchange="Preferences.displayFee(this)">
+      <option value="">-- Choose an Event --</option>
+      <option value="festival" data-fee="20">Community Festival</option>
+      <option value="run" data-fee="15">5K Fun Run</option>
+      <option value="workshop" data-fee="25">Art Workshop</option>
+    </select>
+
+    <div id="eventFee"></div>
+
+    <label for="message">Additional Message:</label>
+    <textarea id="message" name="message" rows="4" oninput="FormHandler.countChars(this, 'charCounter', 500)"></textarea>
+    <div id="charCounter">0 / 500 characters</div>
+
+    <button type="submit">Submit Registration</button>
+    <button type="button" onclick="Preferences.clear()">Clear Preferences</button>
+  </form>
+
+  <div id="output"></div>
+</section>
+
+<section id="events">
+  <h2>Community Festival</h2>
+  <img class="event-img" src="https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80" alt="Community Festival" />
+  <p>Join us for a day full of fun, food, music, and local vendors celebrating our community spirit.</p>
+
+  <h2>5K Fun Run</h2>
+  <img class="event-img" src="https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=800&q=80" alt="5K Fun Run" />
+  <p>Get moving and join the 5K Fun Run — a great way to stay healthy and enjoy the outdoors with friends and family.</p>
+
+  <h2>Art Workshop</h2>
+  <img class="event-img" src="https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=800&q=80" alt="Art Workshop" />
+  <p>Discover your creativity in our hands-on art workshop. Materials and guidance provided for all skill levels.</p>
+</section>
+
+<section id="location">
+  <h2>Find Nearby Events</h2>
+  <button onclick="GeoLocation.findNearbyEvents()">Find Events Near Me</button>
+  <div id="locationResult"></div>
+</section>
+
+<script>
+const Preferences = (() => {
+  const eventTypeSelect = document.getElementById('eventType');
+  const eventFeeDiv = document.getElementById('eventFee');
+
+  function load() {
+    const saved = localStorage.getItem('preferredEventType');
+    if (saved) {
+      eventTypeSelect.value = saved;
+      displayFee(eventTypeSelect);
+    }
+  }
+
+  function displayFee(select) {
+    const fee = select.selectedOptions[0]?.dataset.fee || '';
+    eventFeeDiv.textContent = fee ? `Registration Fee: $${fee}` : '';
+    fee ? localStorage.setItem('preferredEventType', select.value) : localStorage.removeItem('preferredEventType');
+  }
+
+  function clear() {
+    localStorage.removeItem('preferredEventType');
+    sessionStorage.clear();
+    eventTypeSelect.value = '';
+    eventFeeDiv.textContent = '';
+    alert('All preferences have been cleared!');
+    console.log('Preferences cleared');
+  }
+
+  return { load, displayFee, clear };
+})();
+
+const FormHandler = (() => {
+  let formModified = false;
+  const form = document.getElementById('registrationForm');
+  const output = document.getElementById('output');
+
+  window.onbeforeunload = e => formModified ? (e.returnValue = 'You have unsaved changes. Are you sure you want to leave?') : undefined;
+  form.addEventListener('input', () => { formModified = true; });
+
+  function validatePhone(input) {
+    const regex = /^\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}$/;
+    if (input.value && !regex.test(input.value)) {
+      input.style.borderColor = '#f44336';
+      alert('Please enter a valid phone number: (555) 123-4567');
+    } else input.style.borderColor = '#4caf50';
+  }
+
+  function countChars(textarea, counterId, max) {
+    const count = textarea.value.length;
+    const counter = document.getElementById(counterId);
+    if (count > max) textarea.value = textarea.value.substring(0, max);
+    counter.textContent = `${textarea.value.length} / ${max} characters`;
+    counter.style.color = textarea.value.length > max ? '#f44336' : '#666';
+  }
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    if (!confirm('Submit this registration?')) return;
+
+    const data = new FormData(form);
+    let msg = 'Registration Confirmed!<br><br>Details:<br>';
+    for (const [k, v] of data.entries()) if (v) msg += `${k}: ${v}<br>`;
+    output.innerHTML = msg;
+    output.style.display = 'block';
+    formModified = false;
+    console.log('Form submitted');
+  }
+
+  form.addEventListener('submit', handleSubmit);
+
+  return { validatePhone, countChars, handleSubmit };
+})();
+
+const GeoLocation = (() => {
+  const resultDiv = document.getElementById('locationResult');
+
+  function findNearbyEvents() {
+    if (!navigator.geolocation) {
+      resultDiv.innerHTML = '<p style="color:#f44336;">Error: Geolocation not supported.</p>';
+      return;
+    }
+    resultDiv.innerHTML = '<p>📍 Getting your location...</p>';
+
+    const options = {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 60000
+    };
+
+    navigator.geolocation.getCurrentPosition(
+      position => {
+        const lat = position.coords.latitude.toFixed(6);
+        const lon = position.coords.longitude.toFixed(6);
+        const accuracy = position.coords.accuracy;
+
+        resultDiv.innerHTML = `
+          <div style="background:#e8f5e8; padding:1rem; border-radius:8px; border:2px solid #4caf50;">
+            <h4>📍 Your Location Found!</h4>
+            <p><strong>Coordinates:</strong> ${lat}, ${lon}</p>
+            <p><strong>Accuracy:</strong> ±${accuracy} meters</p>
+            <p><strong>Nearby Events:</strong></p>
+            <ul>
+              <li>🎪 Community Festival - 0.5 miles away</li>
+              <li>🏃‍♂️ 5K Fun Run - 1.2 miles away</li>
+              <li>🎨 Art Workshop - 0.8 miles away</li>
+            </ul>
+          </div>
+        `;
+        console.log(`Location found: ${lat}, ${lon}`);
+      },
+      error => {
+        let errorMessage = '';
+        switch(error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage = 'Error: Location access denied by user.';
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage = 'Error: Location information is unavailable.';
+            break;
+          case error.TIMEOUT:
+            errorMessage = 'Error: The request to get user location timed out.';
+            break;
+          default:
+            errorMessage = 'Error: An unknown error occurred.';
+        }
+        resultDiv.innerHTML = `<p style="color:#f44336;">${errorMessage}</p>`;
+        console.error(errorMessage);
